@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { RefreshCcwIcon, CopyIcon } from "lucide-react";
 import {
@@ -21,10 +21,45 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
+import { ThemeSwitcher } from "@/components/theming/themecontroller";
+import { MCPManager, type MCPServer } from "@/components/mcp-manager";
 
 export default function Home() {
   const [input, setInput] = useState("");
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+
   const { messages, sendMessage, status, regenerate } = useChat();
+
+  // Patch fetch to include mcpServers with every request
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    (window as any).fetch = async (
+      resource: string | Request,
+      config?: RequestInit
+    ) => {
+      // Only patch our /api/chat endpoint
+      if (
+        (typeof resource === "string" && resource.includes("/api/chat")) ||
+        (resource instanceof Request && resource.url.includes("/api/chat"))
+      ) {
+        const body = config?.body
+          ? typeof config.body === "string"
+            ? JSON.parse(config.body)
+            : config.body
+          : {};
+
+        config = {
+          ...config,
+          body: JSON.stringify({ ...body, mcpServers }),
+        };
+      }
+      return originalFetch(resource, config);
+    };
+
+    return () => {
+      (window as any).fetch = originalFetch;
+    };
+  }, [mcpServers]);
 
   const handleSubmit = (message: PromptInputMessage) => {
     if (message.text.trim()) {
@@ -35,6 +70,10 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen w-full max-w-3xl mx-auto p-4">
+      <div className="flex items-center justify-between mb-4">
+        <MCPManager onChange={setMcpServers} />
+        <ThemeSwitcher />
+      </div>
       <Conversation className="flex-1">
         <ConversationContent>
           {messages.map((message, messageIndex) => (
