@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
 
       const resourceMeta = extractResourceMeta(resource, htmlContent);
 
+      console.log("Fetched MCP resource", { uri, resourceMeta });
       return NextResponse.json({
         html: htmlContent.text,
         mimeType: htmlContent.mimeType,
